@@ -15,16 +15,35 @@
     <div class="p-6">
         <div class="text-center mb-6">
             <h3 class="text-2xl font-bold text-white mb-1">{{ token_entity.name }}</h3>
-            <p class="text-sm text-slate-400">{{ token_entity.symbol }} - No Active Trading Pairs</p>
+            <p class="text-sm text-slate-400">{{ token_entity.symbol }} &mdash; No Active Trading Pairs</p>
         </div>
         
+        {# Status explanation box #}
         <div class="bg-slate-800/50 rounded-xl p-4 mb-4">
-            <p class="text-sm text-slate-300 leading-relaxed">
-                This token does not have active spot trading pairs on major exchanges. 
-                It operates primarily through mint/redeem mechanisms or OTC transactions.
-            </p>
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-amber-500/70 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <div>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        This token does not have active spot trading pairs on major exchanges. 
+                        It operates primarily through <strong class="text-slate-200">mint/redeem mechanisms</strong> 
+                        or <strong class="text-slate-200">OTC transactions</strong> with the issuer.
+                    </p>
+                    {% if token_entity.symbol == "OUSG" %}
+                    <p class="text-xs text-slate-500 mt-2">
+                        Secondary market effectively inactive (24h volume ≈ 0). Exchanges suspended trading.
+                    </p>
+                    {% elif token_entity.symbol == "BENJI" %}
+                    <p class="text-xs text-slate-500 mt-2">
+                        Tokenized money market fund with P2P transfers. Focus on NAV, not orderbook.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
         
+        {# Token metadata grid #}
         <div class="grid grid-cols-2 gap-4">
             <div class="bg-slate-800/30 rounded-lg p-3">
                 <span class="text-xs text-slate-500 uppercase tracking-wide">Issuer</span>
@@ -32,7 +51,7 @@
             </div>
             <div class="bg-slate-800/30 rounded-lg p-3">
                 <span class="text-xs text-slate-500 uppercase tracking-wide">Category</span>
-                <p class="text-sm text-white mt-1">{{ token_entity.category.value | title }}</p>
+                <p class="text-sm text-white mt-1">{{ token_entity.category.value | replace("_", " ") | title }}</p>
             </div>
             {% if token_entity.chain %}
             <div class="bg-slate-800/30 rounded-lg p-3">
@@ -43,17 +62,21 @@
             {% if token_entity.contract_address %}
             <div class="bg-slate-800/30 rounded-lg p-3">
                 <span class="text-xs text-slate-500 uppercase tracking-wide">Contract</span>
-                <p class="text-sm text-white mt-1 truncate" title="{{ token_entity.contract_address }}">
+                <p class="text-sm text-white mt-1 font-mono truncate" title="{{ token_entity.contract_address }}">
                     {{ token_entity.contract_address[:10] }}...{{ token_entity.contract_address[-6:] }}
                 </p>
             </div>
             {% endif %}
         </div>
         
-        <div class="mt-6 pt-4 border-t border-slate-700">
-            <p class="text-xs text-slate-500 text-center">
-                For trading or redemption, please visit the issuer's official platform.
-            </p>
+        {# Why no spread data #}
+        <div class="mt-6 pt-4 border-t border-slate-700/50">
+            <div class="flex items-center justify-center gap-2 text-xs text-slate-500">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>No bid/ask spread available &mdash; visit issuer for trading/redemption</span>
+            </div>
         </div>
     </div>
 </section>

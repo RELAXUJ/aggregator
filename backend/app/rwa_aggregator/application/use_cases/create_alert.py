@@ -12,8 +12,10 @@ from app.rwa_aggregator.application.dto.alert_dto import AlertDTO, CreateAlertRe
 from app.rwa_aggregator.application.exceptions import (
     InvalidEmailError,
     TokenNotFoundError,
+    TokenNotTradableError,
 )
 from app.rwa_aggregator.domain.entities.alert import Alert, AlertStatus, AlertType
+from app.rwa_aggregator.domain.entities.token import MarketType
 from app.rwa_aggregator.domain.repositories.alert_repository import AlertRepository
 from app.rwa_aggregator.domain.repositories.token_repository import TokenRepository
 from app.rwa_aggregator.domain.value_objects.email_address import EmailAddress
@@ -52,6 +54,7 @@ class CreateAlertUseCase:
 
         Raises:
             TokenNotFoundError: If the base token symbol is not recognized.
+            TokenNotTradableError: If the token is NAV-only (no active trading pairs).
             InvalidEmailError: If the email address is invalid.
         """
         # 1. Validate and fetch the token
@@ -59,13 +62,18 @@ class CreateAlertUseCase:
         if token is None or token.id is None:
             raise TokenNotFoundError(request.base_token_symbol)
 
-        # 2. Validate email using domain value object
+        # 2. Check that token is tradable (has active trading pairs)
+        # NAV-only tokens don't have bid/ask spreads, so alerts don't make sense
+        if token.market_type == MarketType.NAV_ONLY:
+            raise TokenNotTradableError(request.base_token_symbol)
+
+        # 3. Validate email using domain value object
         try:
             email_address = EmailAddress(request.email)
         except ValueError as e:
             raise InvalidEmailError(request.email) from e
 
-        # 3. Create the Alert domain entity
+        # 4. Create the Alert domain entity
         alert = Alert(
             id=None,  # Will be assigned by the database
             email=email_address,
@@ -76,10 +84,10 @@ class CreateAlertUseCase:
             cooldown_hours=request.cooldown_hours,
         )
 
-        # 4. Persist the alert
+        # 5. Persist the alert
         saved_alert = await self._alert_repository.save(alert)
 
-        # 5. Build and return the DTO
+        # 6. Build and return the DTO
         return self._build_alert_dto(
             alert=saved_alert,
             token_symbol=request.base_token_symbol,

@@ -141,6 +141,20 @@ async def _check_alerts_async() -> dict[str, Any]:
             results["alerts_checked"] += 1
 
             try:
+                # Get token info to check if tradable
+                token = await token_repo.get_by_id(alert.token_id)
+                if not token:
+                    logger.debug(f"Token not found for alert token_id={alert.token_id}")
+                    continue
+
+                # Skip NAV-only tokens - they don't have price data
+                if token.is_nav_only:
+                    logger.debug(
+                        f"Skipping alert for NAV-only token {token.symbol} "
+                        f"(token_id={alert.token_id})"
+                    )
+                    continue
+
                 # Get current prices for the token
                 snapshots = await price_repo.get_latest_for_token(alert.token_id)
 
@@ -164,11 +178,7 @@ async def _check_alerts_async() -> dict[str, Any]:
                 # Check if alert should trigger
                 # Note: We pass None for previous_spread, so it will trigger if below threshold
                 if policy.should_trigger(alert, current_spread, None):
-                    # Get token info for email
-                    token = await token_repo.get_by_id(alert.token_id)
-                    if not token:
-                        continue
-
+                    # Token info already fetched above for NAV-only check
                     # Get venue names
                     best_bid_venue = venue_names.get(
                         best_prices.best_bid.venue_id, "Unknown"

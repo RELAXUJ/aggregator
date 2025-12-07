@@ -68,6 +68,12 @@ async def dashboard(
     token_repo = SqlTokenRepository(session)
     tokens = await token_repo.get_all_active()
 
+    # Get tradable tokens separately for alert modal (only show tokens that support alerts)
+    tradable_tokens = await token_repo.get_all_active_tradable()
+
+    # Get NAV-only tokens for the informational section
+    nav_only_tokens = await token_repo.get_all_active_nav_only()
+
     # Default to first token if none specified
     current_token_symbol = token.upper() if token else (tokens[0].symbol if tokens else None)
 
@@ -75,6 +81,12 @@ async def dashboard(
     current_token_entity: Optional[Token] = None
     if current_token_symbol:
         current_token_entity = await token_repo.get_by_symbol(current_token_symbol)
+
+    # Determine if current token is NAV-only
+    is_nav_only = (
+        current_token_entity is not None
+        and current_token_entity.market_type == MarketType.NAV_ONLY
+    )
 
     # Get initial price data for server-side rendering (fallback for no-JS)
     prices: Optional[AggregatedPricesDTO] = None
@@ -96,8 +108,11 @@ async def dashboard(
         "dashboard.html",
         {
             "tokens": tokens,
+            "tradable_tokens": tradable_tokens,
+            "nav_only_tokens": nav_only_tokens,
             "current_token": current_token_symbol,
             "current_token_entity": current_token_entity,
+            "is_nav_only": is_nav_only,
             "prices": prices,
             "error_message": error_message,
         },

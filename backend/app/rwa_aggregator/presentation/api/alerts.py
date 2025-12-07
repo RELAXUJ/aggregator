@@ -17,6 +17,7 @@ from app.rwa_aggregator.application.exceptions import (
     AlertNotFoundError,
     InvalidEmailError,
     TokenNotFoundError,
+    TokenNotTradableError,
 )
 from app.rwa_aggregator.application.use_cases.create_alert import (
     CreateAlertUseCase,
@@ -40,6 +41,9 @@ async def create_alert(
     Creates an alert that will notify the user via email when the spread
     for a token drops below the specified threshold.
 
+    Note: Alerts can only be created for tradable tokens that have active
+    bid/ask data. NAV-only tokens (like OUSG, BENJI) will be rejected.
+
     Args:
         request: Alert creation request with email, token, and threshold.
         session: Database session (injected).
@@ -48,7 +52,7 @@ async def create_alert(
         AlertDTO representing the newly created alert.
 
     Raises:
-        HTTPException: 400 if email is invalid.
+        HTTPException: 400 if email is invalid or token is not tradable.
         HTTPException: 404 if token not found.
     """
     use_case = CreateAlertUseCase(
@@ -63,6 +67,11 @@ async def create_alert(
     except TokenNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
+            detail=e.message,
+        ) from e
+    except TokenNotTradableError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.message,
         ) from e
     except InvalidEmailError as e:

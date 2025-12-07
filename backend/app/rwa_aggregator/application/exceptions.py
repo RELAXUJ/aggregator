@@ -80,3 +80,21 @@ class NoPriceDataError(ApplicationError):
             code="NO_PRICE_DATA"
         )
         self.token_symbol = token_symbol
+
+
+class TokenNotTradableError(ApplicationError):
+    """Raised when an operation requires a tradable token but a NAV-only token is provided.
+
+    NAV-only tokens (like OUSG, BENJI) don't have active trading pairs on exchanges,
+    so operations like creating spread alerts are not supported for them.
+    """
+
+    def __init__(self, token_symbol: str) -> None:
+        super().__init__(
+            message=(
+                f"Token '{token_symbol}' is a NAV-only asset without active trading pairs. "
+                f"Spread alerts are only available for tokens with live bid/ask data."
+            ),
+            code="TOKEN_NOT_TRADABLE"
+        )
+        self.token_symbol = token_symbol
