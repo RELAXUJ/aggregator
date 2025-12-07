@@ -69,6 +69,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         logger.info("✅ Database migrations completed")
                         if result.stdout:
                             logger.debug(f"Migration output: {result.stdout}")
+                        
+                        # Run seed data script after migrations (async)
+                        logger.info("Seeding initial data...")
+                        try:
+                            # Import and run seed function directly (it's async)
+                            import sys
+                            import importlib.util
+                            seed_script_path = os.path.join(backend_dir, "scripts", "seed_data.py")
+                            if os.path.exists(seed_script_path):
+                                spec = importlib.util.spec_from_file_location("seed_data", seed_script_path)
+                                seed_module = importlib.util.module_from_spec(spec)
+                                sys.modules["seed_data"] = seed_module
+                                spec.loader.exec_module(seed_module)
+                                
+                                # Run the async seed function
+                                await seed_module.seed()
+                                logger.info("✅ Initial data seeded successfully")
+                            else:
+                                logger.warning(f"⚠️ Seed script not found at {seed_script_path}")
+                        except Exception as seed_error:
+                            logger.warning(f"⚠️ Seed data error (continuing anyway): {seed_error}")
+                            import traceback
+                            logger.debug(traceback.format_exc())
                     else:
                         logger.error(f"⚠️ Migration failed: {result.stderr}")
                 finally:
