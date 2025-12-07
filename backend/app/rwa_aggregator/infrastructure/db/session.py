@@ -18,15 +18,43 @@ from app.core.config import get_settings
 
 
 def _get_async_database_url() -> str:
-    """Convert database URL to async variant using asyncpg driver."""
+    """Convert database URL to async variant using asyncpg driver.
+    
+    Railway provides both DATABASE_URL (internal) and DATABASE_PUBLIC_URL (external).
+    We prefer internal for better performance, but fall back to public if needed.
+    """
+    import os
+    import logging
+    
+    logger = logging.getLogger(__name__)
     settings = get_settings()
-    url = str(settings.database_url)
+    
+    # Check environment variables first (Railway sets these)
+    env_db_url = os.getenv("DATABASE_URL")
+    env_public_url = os.getenv("DATABASE_PUBLIC_URL")
+    
+    if env_db_url:
+        url = env_db_url
+        logger.info("Using DATABASE_URL from environment (internal)")
+    elif env_public_url:
+        url = env_public_url
+        logger.warning("Using DATABASE_PUBLIC_URL from environment (fallback to public)")
+    else:
+        url = str(settings.database_url)
+        logger.info("Using DATABASE_URL from settings")
+    
     # Replace postgresql:// or postgresql+psycopg:// with postgresql+asyncpg://
     if url.startswith("postgresql+psycopg://"):
-        return url.replace("postgresql+psycopg://", "postgresql+asyncpg://")
+        async_url = url.replace("postgresql+psycopg://", "postgresql+asyncpg://")
     elif url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://")
-    return url
+        async_url = url.replace("postgresql://", "postgresql+asyncpg://")
+    else:
+        async_url = url
+    
+    # Log first 50 chars (without password)
+    safe_url = async_url.split("@")[-1] if "@" in async_url else async_url[:50]
+    logger.debug(f"Database URL host: {safe_url}")
+    return async_url
 
 
 # Lazy initialization - engine and session factory created on first use
