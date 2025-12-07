@@ -47,51 +47,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             logger.info("Running database migrations...")
             import os
-            from alembic.config import Config
-            from alembic import context
-            from alembic.script import ScriptDirectory
-            from sqlalchemy import pool
-            from sqlalchemy.ext.asyncio import async_engine_from_config
-            from app.rwa_aggregator.infrastructure.db.models import Base
+            import subprocess
+            import sys
             
             # Find alembic.ini - it's in the backend directory
             backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             alembic_ini_path = os.path.join(backend_dir, "alembic.ini")
             
             if os.path.exists(alembic_ini_path):
-                alembic_cfg = Config(alembic_ini_path)
-                
-                # Get database URL and convert to async format
-                db_url = str(settings.database_url)
-                if db_url.startswith("postgresql+psycopg://"):
-                    db_url = db_url.replace("postgresql+psycopg://", "postgresql+asyncpg://")
-                elif db_url.startswith("postgresql://"):
-                    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
-                
-                # Run migrations using async engine (compatible with existing event loop)
-                async def run_migrations_async():
-                    configuration = alembic_cfg.get_section(alembic_cfg.config_ini_section, {})
-                    configuration["sqlalchemy.url"] = db_url
-                    
-                    connectable = async_engine_from_config(
-                        configuration,
-                        prefix="sqlalchemy.",
-                        poolclass=pool.NullPool,
+                # Change to backend directory and run alembic command
+                original_cwd = os.getcwd()
+                try:
+                    os.chdir(backend_dir)
+                    result = subprocess.run(
+                        [sys.executable, "-m", "alembic", "upgrade", "head"],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
                     )
-                    
-                    def do_run_migrations(connection):
-                        context.configure(connection=connection, target_metadata=Base.metadata)
-                        with context.begin_transaction():
-                            context.run_migrations()
-                    
-                    async with connectable.connect() as connection:
-                        await connection.run_sync(do_run_migrations)
-                    
-                    await connectable.dispose()
-                
-                # Run migrations in the current event loop
-                await run_migrations_async()
-                logger.info("✅ Database migrations completed")
+                    if result.returncode == 0:
+                        logger.info("✅ Database migrations completed")
+                        if result.stdout:
+                            logger.debug(f"Migration output: {result.stdout}")
+                    else:
+                        logger.error(f"⚠️ Migration failed: {result.stderr}")
+                finally:
+                    os.chdir(original_cwd)
             else:
                 logger.warning(f"⚠️ alembic.ini not found at {alembic_ini_path}, skipping migrations")
         except Exception as e:
