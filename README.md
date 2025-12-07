@@ -145,3 +145,4 @@ mypy backend/
 ## License
 
 MIT
+

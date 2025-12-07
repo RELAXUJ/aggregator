@@ -60,3 +60,4 @@ def send_alert_notification(self, alert_id: str, current_price: str) -> dict:
         "1) AlertRepository to get alert details, "
         "2) SendGrid EmailSender to send notification"
     )
+

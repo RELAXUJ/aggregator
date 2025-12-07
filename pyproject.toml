@@ -90,3 +90,4 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["celery.*", "redis.*", "web3.*"]
 ignore_missing_imports = true
+

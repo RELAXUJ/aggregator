@@ -41,3 +41,4 @@ celery_app.autodiscover_tasks(
         "app.rwa_aggregator.infrastructure.tasks",
     ]
 )
+

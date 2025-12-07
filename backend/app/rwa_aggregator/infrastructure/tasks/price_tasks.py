@@ -58,3 +58,4 @@ def fetch_price_for_token(self, token_symbol: str) -> dict:
         "2) PriceRepository to persist snapshots, "
         "3) Redis client for caching"
     )
+
