@@ -16,12 +16,10 @@
         <select 
             id="token-selector"
             name="token"
-            hx-get="/partials/price-table/{{ current_token }}"
-            hx-trigger="change"
             hx-target="#price-data-container"
             hx-swap="innerHTML"
             hx-indicator="#loading-indicator"
-            onchange="updatePartialUrls(this.value)"
+            onchange="loadTokenPrices(this.value)"
             class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 pr-8 text-white 
                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                    cursor-pointer appearance-none"
@@ -169,10 +167,21 @@
 
 {% block scripts %}
 <script>
-    // Update HTMX partial URLs when token changes
-    function updatePartialUrls(tokenSymbol) {
+    // Load token prices via HTMX when dropdown changes
+    function loadTokenPrices(tokenSymbol) {
         const container = document.getElementById('price-data-container');
+        
+        // Update the container's hx-get for future auto-refreshes
         container.setAttribute('hx-get', '/partials/price-table/' + tokenSymbol);
+        
+        // Re-process HTMX attributes so auto-refresh uses new URL
+        htmx.process(container);
+        
+        // Trigger HTMX to load the new content immediately
+        htmx.ajax('GET', '/partials/price-table/' + tokenSymbol, {
+            target: '#price-data-container',
+            swap: 'innerHTML'
+        });
         
         // Update URL without page reload
         const url = new URL(window.location);

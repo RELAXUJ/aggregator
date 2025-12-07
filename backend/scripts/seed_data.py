@@ -46,6 +46,23 @@ TOKENS = [
         "chain": "Stellar",
         "contract_address": None,  # Stellar-based
     },
+    # Test tokens with real exchange data (for infrastructure verification)
+    {
+        "symbol": "ETH",
+        "name": "Ethereum (Test Token)",
+        "category": TokenCategory.EQUITY,  # Using EQUITY as placeholder
+        "issuer": "Ethereum Foundation",
+        "chain": "Ethereum",
+        "contract_address": None,
+    },
+    {
+        "symbol": "PAXG",
+        "name": "Paxos Gold (RWA - Gold)",
+        "category": TokenCategory.EQUITY,
+        "issuer": "Paxos",
+        "chain": "Ethereum",
+        "contract_address": "0x45804880De22913dAFE09f4980848ECE6EcbAf78",
+    },
 ]
 
 # MVP Venues per specification
