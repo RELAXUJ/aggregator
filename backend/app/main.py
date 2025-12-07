@@ -42,6 +42,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("RWA Liquidity Aggregator starting up...")
     logger.info(f"Environment: {settings.app_env}")
 
+    # Run database migrations on startup (Railway deployment)
+    if settings.is_production:
+        try:
+            logger.info("Running database migrations...")
+            from alembic.config import Config
+            from alembic import command
+            import os
+            
+            # Find alembic.ini - it's in the backend directory
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            alembic_ini_path = os.path.join(backend_dir, "alembic.ini")
+            
+            if os.path.exists(alembic_ini_path):
+                alembic_cfg = Config(alembic_ini_path)
+                command.upgrade(alembic_cfg, "head")
+                logger.info("✅ Database migrations completed")
+            else:
+                logger.warning(f"⚠️ alembic.ini not found at {alembic_ini_path}, skipping migrations")
+        except Exception as e:
+            logger.error(f"⚠️ Migration error (continuing anyway): {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+
     # Start background price fetcher
     logger.info("Starting price fetcher background task (every 10s)...")
     price_task = asyncio.create_task(price_fetcher_loop())

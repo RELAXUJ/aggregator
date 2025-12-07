@@ -4,15 +4,36 @@ You have PostgreSQL set up! Here's exactly what to do next:
 
 ## Step 1: Connect Database to Your App Service
 
+### Option A: Using Variable Reference (Preferred)
+
 1. **Go to your main application service** (the one running FastAPI)
 2. Click on **"Variables"** tab
 3. Click **"+ New Variable"**
-4. Click **"Add Reference"** (this is the key!)
+4. Click **"Add Reference"**
 5. Select your **Postgres** service
 6. Select **`DATABASE_URL`** from the dropdown
 7. Click **"Add"**
 
-This automatically connects your app to the database. Railway will set `DATABASE_URL` for you.
+**If you see "No suggestions":**
+- Make sure both services are in the **same Railway project**
+- Check that PostgreSQL service is **deployed/running** (green status)
+- Try refreshing the page
+- If still not working, use **Option B** below
+
+### Option B: Manual DATABASE_URL (If Reference Doesn't Work)
+
+If Variable Reference isn't working, manually copy the DATABASE_URL:
+
+1. **Go to your PostgreSQL service** → **"Variables"** tab
+2. **Copy the `DATABASE_URL` value** (it looks like: `postgresql://postgres:password@host:port/railway`)
+3. **Go to your web service** → **"Variables"** tab
+4. Click **"+ New Variable"**
+5. Set:
+   - **Variable Name:** `DATABASE_URL`
+   - **Value:** Paste the copied DATABASE_URL
+6. Click **"Add"**
+
+**Important:** Make sure you're using the **internal** `DATABASE_URL` (from PostgreSQL Variables tab), not the public one. The internal one uses `postgres.railway.internal` as the host.
 
 ## Step 2: Set Required Environment Variables
 
@@ -99,6 +120,15 @@ If you want background tasks (price fetching, alerts):
 - Verify `DATABASE_URL` Variable Reference is added correctly
 - Check that both services are in the same Railway project
 - Make sure PostgreSQL service is running (green status)
+- If Variable Reference shows "no suggestions", manually copy `DATABASE_URL` from PostgreSQL service Variables tab
+
+### "No suggestions" when adding Variable Reference
+**Common causes:**
+1. Services are in different Railway projects → Move them to the same project
+2. PostgreSQL service isn't deployed yet → Wait for it to finish deploying
+3. UI glitch → Try refreshing the page or using manual method (Option B above)
+
+**Solution:** Use the manual method (Option B) - it works just as well!
 
 ### Migration errors
 - Ensure `alembic.ini` is in the `backend` directory
