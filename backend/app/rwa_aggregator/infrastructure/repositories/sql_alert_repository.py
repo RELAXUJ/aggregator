@@ -7,7 +7,7 @@ SQLAlchemy 2.0 async patterns with asyncpg driver.
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.rwa_aggregator.domain.entities.alert import Alert, AlertStatus, AlertType
@@ -59,6 +59,13 @@ class SqlAlertRepository(AlertRepository):
         result = await self._session.execute(stmt)
         models = result.scalars().all()
         return [self._to_entity(m) for m in models]
+
+    async def get_all_unique_emails(self) -> List[str]:
+        """Retrieve all unique email addresses that have created alerts."""
+        stmt = select(distinct(AlertModel.email))
+        result = await self._session.execute(stmt)
+        emails = result.scalars().all()
+        return list(emails)
 
     async def save(self, alert: Alert) -> Alert:
         """Persist an alert entity.

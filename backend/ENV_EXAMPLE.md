@@ -56,10 +56,10 @@ ETH_RPC_URL=https://mainnet.infura.io/v3/your_project_id
 THEGRAPH_API_KEY=37c26010270315607fc2333c3dbabe1b
 
 # ============================================
-# EMAIL ALERTS (SendGrid)
+# EMAIL ALERTS (Postmark)
 # ============================================
-
-SENDGRID_API_KEY=
+# Get your server API token from https://account.postmarkapp.com/servers
+POSTMARK_API_TOKEN=
 ALERT_FROM_EMAIL=alerts@yourdomain.com
 ```
 

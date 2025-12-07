@@ -1,4 +1,4 @@
-# External clients - Kraken, Coinbase, Uniswap, SendGrid
+# External clients - Kraken, Coinbase, Uniswap, Postmark
 
 from .coinbase_client import CoinbaseClient
 from .kraken_client import KrakenClient

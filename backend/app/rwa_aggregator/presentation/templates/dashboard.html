@@ -315,11 +315,25 @@
                 alert('Alert created successfully!');
                 form.reset();
             } else {
-                const error = await response.json();
-                alert('Error: ' + (error.detail || 'Failed to create alert'));
+                // Try to parse JSON error response, fallback to text
+                let errorMessage = 'Failed to create alert';
+                try {
+                    const error = await response.json();
+                    errorMessage = error.detail || errorMessage;
+                } catch (parseError) {
+                    // If response is not JSON, try to get text
+                    try {
+                        const text = await response.text();
+                        errorMessage = text || errorMessage;
+                    } catch (textError) {
+                        // Fallback to status text
+                        errorMessage = response.statusText || errorMessage;
+                    }
+                }
+                alert('Error: ' + errorMessage);
             }
         } catch (err) {
-            alert('Error: ' + err.message);
+            alert('Error: ' + (err.message || 'Failed to create alert'));
         }
     }
     

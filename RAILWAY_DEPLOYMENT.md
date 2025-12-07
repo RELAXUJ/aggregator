@@ -54,7 +54,7 @@ CELERY_RESULT_BACKEND=<redis-url>/2
 
 #### Optional (for email alerts):
 ```bash
-SENDGRID_API_KEY=<your-sendgrid-key>
+POSTMARK_API_TOKEN=<your-postmark-server-token>
 ALERT_FROM_EMAIL=alerts@yourdomain.com
 ```
 

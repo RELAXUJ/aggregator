@@ -36,7 +36,7 @@ async def _send_alert_email(
     best_ask_venue: str,
     best_ask_price: Decimal,
 ) -> bool:
-    """Send alert email via SendGrid or log to console in dev mode.
+    """Send alert email via Postmark or log to console in dev mode.
 
     Returns:
         True if email was sent successfully.
@@ -45,7 +45,7 @@ async def _send_alert_email(
 
     # Build email content
     subject = f"🔔 {token_symbol} Spread Alert: {current_spread:.2f}%"
-    body = f"""
+    html_body = f"""
     <h2>{token_symbol} Spread Alert</h2>
     <p>The spread has dropped to <strong>{current_spread:.2f}%</strong></p>
     <ul>
@@ -54,8 +54,18 @@ async def _send_alert_email(
     </ul>
     <p>Time to trade!</p>
     """
+    text_body = f"""
+{token_symbol} Spread Alert
 
-    if not settings.sendgrid_api_key:
+The spread has dropped to {current_spread:.2f}%
+
+Best Bid: ${best_bid_price:.4f} on {best_bid_venue}
+Best Ask: ${best_ask_price:.4f} on {best_ask_venue}
+
+Time to trade!
+    """.strip()
+
+    if not settings.postmark_api_token:
         # Dev mode - just log
         logger.info(
             f"[DEV MODE] Alert email to {to_email}:\n"
@@ -67,29 +77,32 @@ async def _send_alert_email(
         )
         return True
 
-    # Send via SendGrid
+    # Send via Postmark
     try:
         import httpx
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "https://api.sendgrid.com/v3/mail/send",
+                "https://api.postmarkapp.com/email",
                 headers={
-                    "Authorization": f"Bearer {settings.sendgrid_api_key}",
+                    "Accept": "application/json",
                     "Content-Type": "application/json",
+                    "X-Postmark-Server-Token": settings.postmark_api_token,
                 },
                 json={
-                    "personalizations": [{"to": [{"email": to_email}]}],
-                    "from": {"email": settings.alert_from_email},
-                    "subject": subject,
-                    "content": [{"type": "text/html", "value": body}],
+                    "From": settings.alert_from_email,
+                    "To": to_email,
+                    "Subject": subject,
+                    "HtmlBody": html_body,
+                    "TextBody": text_body,
+                    "MessageStream": "outbound",  # Default transactional stream
                 },
                 timeout=10.0,
             )
 
-            if response.status_code >= 400:
+            if response.status_code != 200:
                 logger.error(
-                    f"SendGrid error: {response.status_code} - {response.text}"
+                    f"Postmark error: {response.status_code} - {response.text}"
                 )
                 return False
 

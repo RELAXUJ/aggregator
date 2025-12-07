@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     eth_rpc_url: str = Field(default="")
     thegraph_api_key: str = Field(default="")  # Get from https://thegraph.com/studio/
 
-    # Email (SendGrid)
-    sendgrid_api_key: str = Field(default="")
+    # Email (Postmark)
+    postmark_api_token: str = Field(default="")
     alert_from_email: str = Field(default="alerts@example.com")
 
     @property
