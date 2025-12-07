@@ -11,11 +11,15 @@ Or with specific feeds:
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from decimal import Decimal
 
 # Add parent to path for imports
 sys.path.insert(0, ".")
+
+# Default API key for The Graph (can be overridden via --thegraph-key or THEGRAPH_API_KEY env var)
+DEFAULT_THEGRAPH_API_KEY = "37c26010270315607fc2333c3dbabe1b"
 
 from app.rwa_aggregator.infrastructure.external import (
     CoinbaseClient,
@@ -99,9 +103,10 @@ async def test_uniswap(api_key: str = None):
     print("Testing Uniswap V3 Subgraph")
     print("=" * 50)
 
-    if not api_key:
+    if api_key:
+        print(f"\n  Using The Graph API key: {api_key[:8]}...")
+    else:
         print("\n  ⚠ No API key provided. Get one from https://thegraph.com/studio/")
-        print("    Use --thegraph-key YOUR_KEY to test Uniswap")
 
     async with UniswapClient(network="mainnet", api_key=api_key) as client:
         # Test tokens (tokens that have liquidity pools)
@@ -184,6 +189,9 @@ async def main():
 
     args = parser.parse_args()
 
+    # Get The Graph API key from: CLI arg > env var > default
+    thegraph_key = args.thegraph_key or os.environ.get("THEGRAPH_API_KEY") or DEFAULT_THEGRAPH_API_KEY
+
     # If no specific feed selected, test all
     test_all = not any([args.kraken, args.coinbase, args.uniswap, args.registry])
 
@@ -199,10 +207,10 @@ async def main():
             await test_coinbase(args.coinbase_key, args.coinbase_secret)
 
         if test_all or args.uniswap:
-            await test_uniswap(args.thegraph_key)
+            await test_uniswap(thegraph_key)
 
         if test_all or args.registry:
-            await test_registry(args.thegraph_key)
+            await test_registry(thegraph_key)
 
         print("\n" + "=" * 50)
         print("All tests completed successfully!")
