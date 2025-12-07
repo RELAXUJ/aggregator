@@ -1,0 +1,9 @@
+========================================
+TOKENS IN DATABASE:
+========================================
+  BENJI      -> NAV_ONLY
+  ETH        -> TRADABLE
+  OUSG       -> NAV_ONLY
+  PAXG       -> TRADABLE
+  USDY       -> TRADABLE
+========================================

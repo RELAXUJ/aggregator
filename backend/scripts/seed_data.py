@@ -106,8 +106,9 @@ VENUES = [
 
 
 async def seed_tokens(session) -> int:
-    """Seed tokens, skipping existing ones. Returns count of new tokens."""
+    """Seed tokens, updating existing ones if needed. Returns count of new tokens."""
     created = 0
+    updated = 0
     for token_data in TOKENS:
         # Check if token already exists
         stmt = select(TokenModel).where(TokenModel.symbol == token_data["symbol"])
@@ -115,7 +116,14 @@ async def seed_tokens(session) -> int:
         existing = result.scalar_one_or_none()
 
         if existing:
-            print(f"  ⏭️  Token {token_data['symbol']} already exists (id={existing.id})")
+            # Update market_type if it differs from seed data
+            expected_market_type = token_data.get("market_type", MarketType.TRADABLE)
+            if existing.market_type != expected_market_type:
+                existing.market_type = expected_market_type
+                updated += 1
+                print(f"  🔄 Updated {token_data['symbol']} market_type: {expected_market_type.value}")
+            else:
+                print(f"  ⏭️  Token {token_data['symbol']} already exists (id={existing.id})")
             continue
 
         token = TokenModel(
@@ -132,6 +140,8 @@ async def seed_tokens(session) -> int:
         created += 1
         print(f"  ✅ Created token: {token_data['symbol']} ({token_data['name']})")
 
+    if updated:
+        print(f"  📝 Updated {updated} token(s) with new market_type values")
     return created
 
 
