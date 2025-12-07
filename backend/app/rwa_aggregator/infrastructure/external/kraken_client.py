@@ -38,7 +38,7 @@ KRAKEN_SYMBOL_MAP: dict[str, str] = {
     "EURC": "EURCEUR",
     # RWA tokens (if listed on Kraken)
     "PAXG": "PAXGUSD",  # Paxos Gold
-    "USDY": "USDYUSD",  # Ondo USDY (if listed)
+    # Note: USDY is not actually listed on Kraken
     # Euro pairs
     "EURZ": "EURZEUR",
 }

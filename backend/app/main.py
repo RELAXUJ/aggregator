@@ -1,5 +1,6 @@
 """FastAPI application factory and main entry point."""
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -10,11 +11,27 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
+from app.rwa_aggregator.infrastructure.tasks.price_tasks import _fetch_all_prices_async
 from app.rwa_aggregator.presentation.api import alerts, health, prices, tokens
 from app.rwa_aggregator.presentation.web import dashboard
 
 settings = get_settings()
 logger = get_logger(__name__)
+
+
+async def price_fetcher_loop() -> None:
+    """Background task to fetch prices every 10 seconds."""
+    while True:
+        try:
+            logger.debug("Fetching prices from all venues...")
+            result = await _fetch_all_prices_async()
+            logger.info(
+                f"Price fetch complete: {result['snapshots_created']} snapshots "
+                f"for {result['tokens_processed']} tokens"
+            )
+        except Exception as e:
+            logger.error(f"Price fetch error: {e}")
+        await asyncio.sleep(10)
 
 
 @asynccontextmanager
@@ -25,10 +42,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("RWA Liquidity Aggregator starting up...")
     logger.info(f"Environment: {settings.app_env}")
 
+    # Start background price fetcher
+    logger.info("Starting price fetcher background task (every 10s)...")
+    price_task = asyncio.create_task(price_fetcher_loop())
+
     yield
 
     # Shutdown
     logger.info("RWA Liquidity Aggregator shutting down...")
+    price_task.cancel()
+    try:
+        await price_task
+    except asyncio.CancelledError:
+        logger.info("Price fetcher task cancelled")
 
 
 def create_app() -> FastAPI:
