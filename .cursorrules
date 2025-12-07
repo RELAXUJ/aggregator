@@ -1,0 +1,194 @@
+# RWA Liquidity Aggregator - Cursor AI Rules
+# This file encodes architectural decisions and coding standards for the project.
+
+## Project Overview
+This is a Domain-Driven Design (DDD) Python backend for aggregating RWA (Real World Asset) token prices across multiple venues (CEX, DEX, issuers). The tech stack is FastAPI + Celery + PostgreSQL + Redis.
+
+## Strict Prohibitions (ENFORCE ABSOLUTELY)
+
+### NO Fabricated Values
+- **NEVER** create placeholder, dummy, or example data in production code
+- **NEVER** hardcode fake values like `"test_token"`, `"example_venue"`, `123.45`, `"dummy_data"`
+- **NEVER** use `# TODO: replace with real data` patterns
+- All data must come from actual sources: database queries, API calls, user input, or configuration
+- If data is missing, raise appropriate exceptions or return empty results - do NOT fabricate
+
+### NO Mock Implementations
+- **NEVER** create mock or stub implementations in production code
+- **NEVER** use `pass` or `return None` as placeholder implementations
+- **NEVER** create `MockRepository`, `FakeService`, or similar classes outside test files
+- All implementations must be real, functional code
+- If an interface cannot be implemented yet, raise `NotImplementedError` with clear message
+
+### NO Fallbacks to Fake Data
+- **NEVER** fall back to hardcoded values when real data is unavailable
+- **NEVER** use default/example values as fallbacks in error cases
+- **NEVER** silently substitute fake data when external calls fail
+- When data sources fail, propagate errors or return empty results explicitly
+- Log errors appropriately - do NOT mask failures with fake data
+
+### Examples of FORBIDDEN Patterns:
+```python
+# ❌ FORBIDDEN: Fabricated values
+def get_price(token: str) -> float:
+    return 100.0  # NO! This is fake data
+
+# ❌ FORBIDDEN: Mock implementations
+class PriceRepository:
+    def get_latest(self):
+        pass  # NO! Must implement or raise NotImplementedError
+
+# ❌ FORBIDDEN: Fallbacks to fake data
+def fetch_price():
+    try:
+        return api_call()
+    except:
+        return 99.99  # NO! Must raise or return empty, not fake data
+```
+
+### Correct Patterns:
+```python
+# ✅ CORRECT: Real implementation or explicit error
+def get_price(token: str) -> float:
+    result = await db.query(...)
+    if not result:
+        raise PriceNotFoundError(f"No price found for {token}")
+    return result.price
+
+# ✅ CORRECT: Explicit NotImplementedError
+class PriceRepository:
+    def get_latest(self):
+        raise NotImplementedError("PriceRepository.get_latest must be implemented")
+
+# ✅ CORRECT: Propagate errors, no fake fallbacks
+def fetch_price():
+    try:
+        return api_call()
+    except APIError as e:
+        logger.error(f"Failed to fetch price: {e}")
+        raise  # Propagate error, don't mask with fake data
+```
+
+## Architecture: Layered DDD with Strict Boundaries
+
+### Layer Hierarchy (dependency direction: top → bottom)
+```
+presentation → application → domain
+                    ↓
+             infrastructure
+```
+
+### Layer Responsibilities
+
+**1. Domain Layer (`backend/app/rwa_aggregator/domain/`)**
+- Pure business rules and logic
+- NO framework imports (no FastAPI, SQLAlchemy, Celery, Redis)
+- Contains: entities, value objects, domain services, repository interfaces
+- Example allowed imports: `dataclasses`, `typing`, `decimal`, `datetime`, `abc`
+
+**2. Application Layer (`backend/app/rwa_aggregator/application/`)**
+- Use cases and orchestration
+- Framework-agnostic (no HTTP, no ORM)
+- Depends on domain layer only
+- Contains: use cases, DTOs, port interfaces
+- Can import from: `domain/`
+
+**3. Infrastructure Layer (`backend/app/rwa_aggregator/infrastructure/`)**
+- Framework adapters and external system integrations
+- Implements domain interfaces
+- Contains: DB models, Redis clients, HTTP clients, Celery tasks, concrete repositories
+- Can import from: `domain/`, `application/` (interfaces only)
+
+**4. Presentation Layer (`backend/app/rwa_aggregator/presentation/`)**
+- HTTP endpoints, templates, static files
+- Contains: FastAPI routers, Jinja templates, HTMX endpoints
+- Can import from: `application/` (use cases), `domain/` (entities/value objects for typing)
+- Should NOT import from: `infrastructure/` directly
+
+## Import Rules (ENFORCE STRICTLY)
+
+### FORBIDDEN imports by layer:
+- `domain/` must NOT import: `fastapi`, `sqlalchemy`, `celery`, `redis`, `httpx`, `jinja2`
+- `application/` must NOT import: `fastapi`, `sqlalchemy`, `celery`, `redis` (except via interfaces)
+- `presentation/` must NOT import directly from: `infrastructure/db/`, `infrastructure/external/`
+
+### When writing code:
+1. **New business logic** → Place in `domain/services/` or `domain/entities/`
+2. **New use case** → Place in `application/use_cases/`, inject dependencies via constructor
+3. **New API endpoint** → Place in `presentation/api/`, call use cases only
+4. **New database model** → Place in `infrastructure/db/`
+5. **New external API client** → Place in `infrastructure/external/`
+
+## Code Style & Conventions
+
+### Python
+- Target Python 3.12+
+- Use type hints everywhere
+- Prefer `dataclasses` or Pydantic models for DTOs
+- Use `async/await` for I/O operations
+- Follow PEP 8, enforced via `ruff`
+
+### Naming Conventions
+- Entities: PascalCase, singular (`Token`, `Alert`, `Venue`)
+- Use cases: verb phrase (`GetAggregatedPrices`, `CreateAlert`)
+- Repositories: interface + impl pattern (`PriceRepository` → `SqlPriceRepository`)
+- API routes: lowercase with underscores (`prices.py`, `alerts.py`)
+
+### File Organization
+- One entity/service/use case per file
+- Repository interface in `domain/repositories/`, implementation in `infrastructure/repositories/`
+- Keep modules focused and small (<300 lines preferred)
+
+## Key Domain Concepts
+
+### Entities
+- `Token`: RWA token being tracked (USDC, PAXG, ONDO, etc.)
+- `Venue`: Price source (Kraken, Coinbase, Uniswap, etc.)
+- `PriceSnapshot`: Point-in-time price observation
+- `Alert`: User-configured price alert
+
+### Value Objects
+- `Price`: Decimal value with currency
+- `Spread`: Bid-ask spread calculation
+- `VenueType`: Enum (CEX, DEX, ISSUER)
+
+### Domain Services
+- `PriceCalculator`: Computes best bid/ask, mid price, spread
+- `AlertPolicy`: Determines when alerts should fire (cooldown, thresholds)
+
+## Testing Guidelines
+- Domain tests: Pure unit tests, no mocking needed
+- Application tests: Mock repository interfaces
+- Infrastructure tests: Integration tests with test containers
+- Presentation tests: HTTP client tests via `httpx`
+
+## Common Patterns
+
+### Dependency Injection
+Use constructor injection in use cases:
+```python
+class GetAggregatedPrices:
+    def __init__(self, price_repo: PriceRepository, calculator: PriceCalculator):
+        self._price_repo = price_repo
+        self._calculator = calculator
+```
+
+### Repository Pattern
+Interface in domain, implementation in infrastructure:
+```python
+# domain/repositories/price_repository.py
+class PriceRepository(ABC):
+    @abstractmethod
+    async def get_latest_by_token(self, token_symbol: str) -> list[PriceSnapshot]: ...
+
+# infrastructure/repositories/sql_price_repository.py
+class SqlPriceRepository(PriceRepository):
+    def __init__(self, session: AsyncSession): ...
+```
+
+## When Adding New Features
+1. Start with domain model (entities, value objects)
+2. Define use case in application layer
+3. Implement infrastructure adapters if needed
+4. Expose via presentation layer last
+5. Write tests at each layer

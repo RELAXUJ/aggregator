@@ -1,0 +1,92 @@
+[project]
+name = "rwa-liquidity-aggregator"
+version = "0.1.0"
+description = "RWA Liquidity Aggregator MVP - Real-time price aggregation across venues"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+authors = [
+    { name = "RWA Aggregator Team" }
+]
+keywords = ["rwa", "liquidity", "aggregator", "defi", "tokenization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    # Web framework & ASGI server
+    "fastapi>=0.115.0,<0.116.0",
+    "uvicorn[standard]>=0.32.0,<0.33.0",
+    
+    # Async HTTP client
+    "httpx[http2]>=0.27.0,<0.28.0",
+    
+    # Database & ORM
+    "sqlalchemy>=2.0.36,<2.1.0",
+    "alembic>=1.14.0,<1.15.0",
+    "psycopg[binary]>=3.2.3,<3.3.0",
+    
+    # Redis & Caching
+    "redis>=5.2.0,<5.3.0",
+    
+    # Background tasks
+    "celery[redis]>=5.4.0,<5.5.0",
+    
+    # Configuration & Validation
+    "pydantic>=2.10.0,<2.11.0",
+    "pydantic-settings>=2.6.0,<2.7.0",
+    
+    # Templating
+    "jinja2>=3.1.4,<3.2.0",
+    
+    # Web3 / Blockchain (for DEX integrations)
+    "web3>=7.5.0,<7.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0,<8.4.0",
+    "pytest-asyncio>=0.24.0,<0.25.0",
+    "pytest-cov>=6.0.0,<6.1.0",
+    "ruff>=0.8.0,<0.9.0",
+    "mypy>=1.13.0,<1.14.0",
+    "pre-commit>=4.0.0,<4.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "redis.*", "web3.*"]
+ignore_missing_imports = true
