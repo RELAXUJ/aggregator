@@ -87,7 +87,7 @@ class SqlAlertRepository(AlertRepository):
             if model is None:
                 raise ValueError(f"Alert with id {alert.id} not found")
 
-            model.email = str(alert.email).lower()
+            model.email = alert.email.value.lower()
             model.token_id = alert.token_id
             model.threshold_pct = alert.threshold_pct
             model.alert_type = alert.alert_type
@@ -117,9 +117,18 @@ class SqlAlertRepository(AlertRepository):
 
     def _to_entity(self, model: AlertModel) -> Alert:
         """Convert an AlertModel to an Alert domain entity."""
+        # Ensure email is a string - handle case where it might have been stored incorrectly
+        email_str = str(model.email)
+        # If somehow stored as dataclass representation, extract the actual email
+        if email_str.startswith("emailaddress(value="):
+            import re
+            match = re.search(r"value='([^']+)'", email_str)
+            if match:
+                email_str = match.group(1)
+        
         return Alert(
             id=model.id,
-            email=EmailAddress(model.email),
+            email=EmailAddress(email_str),
             token_id=model.token_id,
             threshold_pct=Decimal(str(model.threshold_pct)),
             alert_type=model.alert_type,
@@ -133,7 +142,7 @@ class SqlAlertRepository(AlertRepository):
         """Convert an Alert domain entity to an AlertModel."""
         return AlertModel(
             id=entity.id,
-            email=str(entity.email).lower(),
+            email=entity.email.value.lower(),
             token_id=entity.token_id,
             threshold_pct=entity.threshold_pct,
             alert_type=entity.alert_type,

@@ -7,10 +7,13 @@ Implements CRUD operations for price alerts:
 - DELETE /api/alerts/{alert_id} - Delete an alert
 """
 
+import logging
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.rwa_aggregator.application.dto.alert_dto import AlertDTO, AlertListDTO, CreateAlertRequest
 from app.rwa_aggregator.application.exceptions import (
@@ -65,19 +68,29 @@ async def create_alert(
         await session.commit()
         return result
     except TokenNotFoundError as e:
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=e.message,
         ) from e
     except TokenNotTradableError as e:
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.message,
         ) from e
     except InvalidEmailError as e:
+        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.message,
+        ) from e
+    except Exception as e:
+        await session.rollback()
+        logger.exception(f"Unexpected error creating alert: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create alert: {str(e)}",
         ) from e
 
 
