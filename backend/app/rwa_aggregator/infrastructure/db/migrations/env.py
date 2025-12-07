@@ -13,11 +13,12 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Import the Base and all models to ensure they're registered with metadata
-from app.rwa_aggregator.infrastructure.db.models import Base
-
-# Import settings for database URL
+# Import settings for database URL - do this BEFORE importing models
 from app.core.config import get_settings
+
+# Import the Base and all models to ensure they're registered with metadata
+# Import models directly to avoid triggering session.py initialization
+from app.rwa_aggregator.infrastructure.db.models import Base
 
 
 # Alembic Config object - provides access to .ini file values

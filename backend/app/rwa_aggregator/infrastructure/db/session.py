@@ -5,8 +5,10 @@ using asyncpg driver.
 """
 
 from collections.abc import AsyncGenerator
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -27,24 +29,38 @@ def _get_async_database_url() -> str:
     return url
 
 
-# Create async engine
-settings = get_settings()
-engine = create_async_engine(
-    _get_async_database_url(),
-    echo=settings.debug,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
-)
+# Lazy initialization - engine and session factory created on first use
+_engine: Optional[AsyncEngine] = None
+_async_session_local: Optional[async_sessionmaker[AsyncSession]] = None
 
-# Session factory
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+
+def get_engine() -> AsyncEngine:
+    """Get or create the async database engine."""
+    global _engine
+    if _engine is None:
+        settings = get_settings()
+        _engine = create_async_engine(
+            _get_async_database_url(),
+            echo=settings.debug,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+        )
+    return _engine
+
+
+def get_async_session_local() -> async_sessionmaker[AsyncSession]:
+    """Get or create the async session factory."""
+    global _async_session_local
+    if _async_session_local is None:
+        _async_session_local = async_sessionmaker(
+            get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+    return _async_session_local
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -60,7 +76,8 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     Yields:
         AsyncSession: An async SQLAlchemy session.
     """
-    async with AsyncSessionLocal() as session:
+    session_factory = get_async_session_local()
+    async with session_factory() as session:
         try:
             yield session
         finally:

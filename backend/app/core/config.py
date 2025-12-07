@@ -21,9 +21,9 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False)
     secret_key: str = Field(default="change-me-in-production")
 
-    # Database
+    # Database (port 5433 to avoid conflict with local PostgreSQL)
     database_url: PostgresDsn = Field(
-        default="postgresql+psycopg://postgres:postgres@localhost:5432/rwa_aggregator"
+        default="postgresql+psycopg://postgres:postgres@localhost:5433/rwa_aggregator"
     )
 
     # Redis
