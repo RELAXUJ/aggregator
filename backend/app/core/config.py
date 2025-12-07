@@ -47,6 +47,7 @@ class Settings(BaseSettings):
 
     # DEX Configuration
     eth_rpc_url: str = Field(default="")
+    thegraph_api_key: str = Field(default="")  # Get from https://thegraph.com/studio/
 
     # Email (SendGrid)
     sendgrid_api_key: str = Field(default="")

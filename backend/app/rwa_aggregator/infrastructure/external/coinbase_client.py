@@ -1,21 +1,20 @@
 """Coinbase REST API client for fetching price quotes.
 
-Coinbase API documentation: https://docs.cloud.coinbase.com/advanced-trade-api/docs/
-Uses the Advanced Trade API (v3) which is the current recommended API.
-Public endpoints rate limit: 3-10 requests/second per IP.
+Uses the public Coinbase Exchange API for market data (no auth required).
+For authenticated endpoints, use CDP JWT authentication.
+
+Public API: https://api.exchange.coinbase.com
+Rate limit: 3-10 requests/second per IP.
 """
 
-import hashlib
-import hmac
 import logging
-import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
 import httpx
 
-from backend.app.rwa_aggregator.application.interfaces.price_feed import (
+from app.rwa_aggregator.application.interfaces.price_feed import (
     NormalizedQuote,
     PriceFeed,
 )
@@ -37,9 +36,8 @@ COINBASE_SYMBOL_MAP: dict[str, str] = {
     "ATOM": "ATOM-USD",
     "LTC": "LTC-USD",
     "ADA": "ADA-USD",
-    # Stablecoins
+    # Stablecoins (note: USDC has no USD pair as it IS USD-pegged)
     "USDT": "USDT-USD",
-    "USDC": "USDC-USD",
     "DAI": "DAI-USD",
     # RWA-related tokens
     "PAXG": "PAXG-USD",  # Paxos Gold
@@ -51,32 +49,29 @@ DEFAULT_TIMEOUT_SECONDS = 10.0
 
 
 class CoinbaseClient(PriceFeed):
-    """Coinbase REST API client implementing the PriceFeed interface.
+    """Coinbase Exchange API client implementing the PriceFeed interface.
 
-    This client fetches real-time ticker data from Coinbase's Advanced Trade API.
-    Public endpoints can be used without authentication, but authenticated
-    requests have higher rate limits.
+    This client fetches real-time ticker data from Coinbase's public Exchange API.
+    No authentication required for public market data endpoints.
 
     Attributes:
         _client: httpx AsyncClient for making HTTP requests.
-        _base_url: Coinbase API base URL.
-        _api_key: Optional API key for authenticated requests.
-        _api_secret: Optional API secret for authenticated requests.
+        _base_url: Coinbase Exchange API base URL.
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         api_secret: Optional[str] = None,
-        base_url: str = "https://api.coinbase.com",
+        base_url: str = "https://api.exchange.coinbase.com",
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
         """Initialize the Coinbase client.
 
         Args:
-            api_key: Optional Coinbase API key (CDP key ID).
-            api_secret: Optional Coinbase API secret (CDP private key).
-            base_url: Coinbase API base URL.
+            api_key: Optional API key (stored for future authenticated requests).
+            api_secret: Optional API secret (stored for future authenticated requests).
+            base_url: Coinbase Exchange API base URL.
             timeout: HTTP request timeout in seconds.
         """
         self._base_url = base_url.rstrip("/")
@@ -85,7 +80,10 @@ class CoinbaseClient(PriceFeed):
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=timeout,
-            headers={"Accept": "application/json"},
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "RWA-Aggregator/1.0",
+            },
         )
 
     @property
@@ -104,40 +102,10 @@ class CoinbaseClient(PriceFeed):
         """
         return token_symbol.upper() in COINBASE_SYMBOL_MAP
 
-    def _generate_auth_headers(self, method: str, path: str, body: str = "") -> dict[str, str]:
-        """Generate authentication headers for Coinbase API.
-
-        Args:
-            method: HTTP method (GET, POST, etc.).
-            path: API endpoint path.
-            body: Request body (empty string for GET requests).
-
-        Returns:
-            Dictionary of authentication headers.
-        """
-        if not self._api_key or not self._api_secret:
-            return {}
-
-        timestamp = str(int(time.time()))
-        message = timestamp + method.upper() + path + body
-        
-        # Sign the message with HMAC-SHA256
-        signature = hmac.new(
-            self._api_secret.encode("utf-8"),
-            message.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-
-        return {
-            "CB-ACCESS-KEY": self._api_key,
-            "CB-ACCESS-SIGN": signature,
-            "CB-ACCESS-TIMESTAMP": timestamp,
-        }
-
     async def fetch_quote(self, token_symbol: str) -> Optional[NormalizedQuote]:
         """Fetch a price quote from Coinbase for the given token.
 
-        Uses the Advanced Trade API product ticker endpoint.
+        Uses the public Exchange API ticker endpoint (no auth required).
 
         Args:
             token_symbol: Normalized token symbol (e.g., "BTC", "ETH", "PAXG").
@@ -152,20 +120,18 @@ class CoinbaseClient(PriceFeed):
             logger.debug(f"Coinbase does not support token: {token_symbol}")
             return None
 
-        # Use the Advanced Trade API to get best bid/ask
-        path = f"/api/v3/brokerage/products/{product_id}"
-
         try:
-            headers = self._generate_auth_headers("GET", path)
-            response = await self._client.get(path, headers=headers)
+            # Use the public Exchange API ticker endpoint
+            response = await self._client.get(f"/products/{product_id}/ticker")
             response.raise_for_status()
             data = response.json()
 
-            # Response structure from /api/v3/brokerage/products/{id}
-            # Returns price, bid, ask, volume directly
-            bid = data.get("bid") or data.get("price")
-            ask = data.get("ask") or data.get("price")
-            volume_24h = data.get("volume_24h")
+            # Response format from /products/{id}/ticker:
+            # {"trade_id": 123, "price": "50000.00", "size": "0.001",
+            #  "bid": "49999.00", "ask": "50001.00", "volume": "1234.56", "time": "..."}
+            bid = data.get("bid")
+            ask = data.get("ask")
+            volume = data.get("volume")
 
             if not bid or not ask:
                 logger.warning(f"Missing bid/ask in Coinbase response for {product_id}")
@@ -173,14 +139,14 @@ class CoinbaseClient(PriceFeed):
 
             bid_price = Decimal(str(bid))
             ask_price = Decimal(str(ask))
-            volume = Decimal(str(volume_24h)) if volume_24h else None
+            volume_24h = Decimal(str(volume)) if volume else None
 
             return NormalizedQuote(
                 venue_name=self.venue_name,
                 token_symbol=symbol_upper,
                 bid=bid_price,
                 ask=ask_price,
-                volume_24h=volume,
+                volume_24h=volume_24h,
                 timestamp=datetime.now(timezone.utc),
             )
 
@@ -198,13 +164,13 @@ class CoinbaseClient(PriceFeed):
             return None
 
     async def fetch_order_book(
-        self, token_symbol: str, limit: int = 20
+        self, token_symbol: str, limit: int = 50
     ) -> Optional[dict]:
         """Fetch order book data for deeper liquidity analysis.
 
         Args:
             token_symbol: Normalized token symbol.
-            limit: Number of price levels to fetch (default 20).
+            limit: Number of price levels to fetch (default 50).
 
         Returns:
             Dictionary with 'bids' and 'asks' lists, or None if unavailable.
@@ -215,27 +181,46 @@ class CoinbaseClient(PriceFeed):
         if not product_id:
             return None
 
-        path = f"/api/v3/brokerage/products/{product_id}/book"
-
         try:
-            headers = self._generate_auth_headers("GET", path)
+            # Level 2 order book (aggregated)
             response = await self._client.get(
-                path, 
-                params={"limit": limit},
-                headers=headers,
+                f"/products/{product_id}/book",
+                params={"level": 2},
             )
             response.raise_for_status()
             data = response.json()
 
-            pricebook = data.get("pricebook", {})
             return {
-                "bids": pricebook.get("bids", []),
-                "asks": pricebook.get("asks", []),
-                "timestamp": pricebook.get("time"),
+                "bids": data.get("bids", [])[:limit],
+                "asks": data.get("asks", [])[:limit],
+                "sequence": data.get("sequence"),
             }
 
         except Exception as e:
             logger.error(f"Error fetching Coinbase order book for {token_symbol}: {e}")
+            return None
+
+    async def fetch_24h_stats(self, token_symbol: str) -> Optional[dict]:
+        """Fetch 24-hour statistics for a product.
+
+        Args:
+            token_symbol: Normalized token symbol.
+
+        Returns:
+            Dictionary with 24h stats, or None if unavailable.
+        """
+        symbol_upper = token_symbol.upper()
+        product_id = COINBASE_SYMBOL_MAP.get(symbol_upper)
+
+        if not product_id:
+            return None
+
+        try:
+            response = await self._client.get(f"/products/{product_id}/stats")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching Coinbase 24h stats for {token_symbol}: {e}")
             return None
 
     async def close(self) -> None:

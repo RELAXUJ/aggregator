@@ -12,7 +12,7 @@ from typing import Optional
 
 import httpx
 
-from backend.app.rwa_aggregator.application.interfaces.price_feed import (
+from app.rwa_aggregator.application.interfaces.price_feed import (
     NormalizedQuote,
     PriceFeed,
 )
@@ -20,11 +20,13 @@ from backend.app.rwa_aggregator.application.interfaces.price_feed import (
 logger = logging.getLogger(__name__)
 
 # Uniswap V3 subgraph endpoints by network
+# Using Graph Studio endpoints (free tier: 100k queries/month)
+# Note: The hosted service (api.thegraph.com) has been deprecated
 UNISWAP_SUBGRAPH_URLS = {
-    "mainnet": "https://api.studio.thegraph.com/query/48211/uniswap-v3-mainnet/version/latest",
-    "arbitrum": "https://api.studio.thegraph.com/query/48211/uniswap-v3-arbitrum/version/latest",
-    "polygon": "https://api.studio.thegraph.com/query/48211/uniswap-v3-polygon/version/latest",
-    "optimism": "https://api.studio.thegraph.com/query/48211/uniswap-v3-optimism/version/latest",
+    "mainnet": "https://gateway.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV",
+    "arbitrum": "https://gateway.thegraph.com/api/subgraphs/id/FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM",
+    "polygon": "https://gateway.thegraph.com/api/subgraphs/id/3hCPRGf4z88VC5rsBKU5AA9FBBq5nF3jbKJG7VZCbhjm",
+    "optimism": "https://gateway.thegraph.com/api/subgraphs/id/Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj",
 }
 
 # Mapping from token symbols to Ethereum mainnet contract addresses (lowercase)
@@ -75,34 +77,49 @@ class UniswapClient(PriceFeed):
     Note: DEX prices are mid-prices derived from pool state. Actual execution
     prices depend on trade size and current liquidity distribution.
 
+    IMPORTANT: Requires a Graph API key from https://thegraph.com/studio/
+    Free tier provides 100,000 queries/month.
+
     Attributes:
         _client: httpx AsyncClient for GraphQL requests.
         _subgraph_url: The Graph endpoint URL.
         _network: Network name (mainnet, arbitrum, etc.).
+        _api_key: The Graph API key (required for gateway access).
     """
 
     def __init__(
         self,
         network: str = "mainnet",
+        api_key: Optional[str] = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
         """Initialize the Uniswap client.
 
         Args:
             network: Network to query (mainnet, arbitrum, polygon, optimism).
+            api_key: The Graph API key (get from https://thegraph.com/studio/).
             timeout: HTTP request timeout in seconds.
         """
         self._network = network.lower()
+        self._api_key = api_key
         self._subgraph_url = UNISWAP_SUBGRAPH_URLS.get(
             self._network,
             UNISWAP_SUBGRAPH_URLS["mainnet"],
         )
+        
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        
+        # Add API key header if provided
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        
         self._client = httpx.AsyncClient(
             timeout=timeout,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
+            follow_redirects=True,
         )
 
     @property
@@ -192,18 +209,22 @@ class UniswapClient(PriceFeed):
         Returns:
             List of pool data dictionaries, or None on error.
         """
+        # Stablecoin addresses for USD-denominated pools
+        stablecoins = [
+            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
+            "0xdac17f958d2ee523a2206206994597c13d831ec7",  # USDT
+            "0x6b175474e89094c44da98b954eedeac495271d0f",  # DAI
+        ]
+
         # GraphQL query to find pools where this token trades against stablecoins
         query = """
-        query GetTokenPools($token: String!) {
+        query GetTokenPools($token: Bytes!, $stables: [Bytes!]!) {
             poolsAsToken0: pools(
                 first: 5
                 where: {
-                    token0: $token
-                    token1_in: [
-                        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "0xdac17f958d2ee523a2206206994597c13d831ec7",
-                        "0x6b175474e89094c44da98b954eedeac495271d0f"
-                    ]
+                    token0_: { id: $token }
+                    token1_: { id_in: $stables }
+                    totalValueLockedUSD_gt: "10000"
                 }
                 orderBy: totalValueLockedUSD
                 orderDirection: desc
@@ -221,12 +242,9 @@ class UniswapClient(PriceFeed):
             poolsAsToken1: pools(
                 first: 5
                 where: {
-                    token1: $token
-                    token0_in: [
-                        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        "0xdac17f958d2ee523a2206206994597c13d831ec7",
-                        "0x6b175474e89094c44da98b954eedeac495271d0f"
-                    ]
+                    token1_: { id: $token }
+                    token0_: { id_in: $stables }
+                    totalValueLockedUSD_gt: "10000"
                 }
                 orderBy: totalValueLockedUSD
                 orderDirection: desc
@@ -246,7 +264,10 @@ class UniswapClient(PriceFeed):
 
         payload = {
             "query": query,
-            "variables": {"token": token_address.lower()},
+            "variables": {
+                "token": token_address.lower(),
+                "stables": stablecoins,
+            },
         }
 
         response = await self._client.post(self._subgraph_url, json=payload)
@@ -255,12 +276,71 @@ class UniswapClient(PriceFeed):
 
         if "errors" in data:
             logger.error(f"GraphQL errors: {data['errors']}")
-            return None
+            # Try simpler fallback query
+            return await self._query_token_pools_simple(token_address)
 
         result = data.get("data", {})
         pools = result.get("poolsAsToken0", []) + result.get("poolsAsToken1", [])
 
-        return pools if pools else None
+        return pools if pools else await self._query_token_pools_simple(token_address)
+
+    async def _query_token_pools_simple(self, token_address: str) -> Optional[list[dict]]:
+        """Fallback simpler query for token pools.
+
+        Args:
+            token_address: Ethereum address of the token (lowercase).
+
+        Returns:
+            List of pool data dictionaries, or None on error.
+        """
+        # Simpler query that just looks for any high-TVL pools with this token
+        query = """
+        query GetTokenPools($token: String!) {
+            pools(
+                first: 10
+                where: {
+                    or: [
+                        { token0: $token }
+                        { token1: $token }
+                    ]
+                }
+                orderBy: totalValueLockedUSD
+                orderDirection: desc
+            ) {
+                id
+                token0 { id symbol decimals }
+                token1 { id symbol decimals }
+                feeTier
+                liquidity
+                token0Price
+                token1Price
+                volumeUSD
+                totalValueLockedUSD
+            }
+        }
+        """
+
+        try:
+            payload = {
+                "query": query,
+                "variables": {"token": token_address.lower()},
+            }
+
+            response = await self._client.post(self._subgraph_url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+            if "errors" in data:
+                logger.debug(f"GraphQL fallback errors: {data['errors']}")
+                return None
+
+            result = data.get("data", {})
+            pools = result.get("pools", [])
+            return pools if pools else None
+
+        except Exception as e:
+            logger.debug(f"Fallback query failed: {e}")
+            return None
 
     def _calculate_price_from_pools(
         self, pools: list[dict], token_address: str

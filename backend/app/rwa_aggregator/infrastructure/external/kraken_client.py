@@ -11,7 +11,7 @@ from typing import Optional
 
 import httpx
 
-from backend.app.rwa_aggregator.application.interfaces.price_feed import (
+from app.rwa_aggregator.application.interfaces.price_feed import (
     NormalizedQuote,
     PriceFeed,
 )
