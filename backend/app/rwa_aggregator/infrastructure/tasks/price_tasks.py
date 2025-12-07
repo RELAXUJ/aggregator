@@ -18,25 +18,21 @@ def fetch_all_prices(self) -> dict:
 
     Returns:
         Summary of fetched prices.
+
+    Raises:
+        NotImplementedError: Task requires venue clients and repositories.
     """
-    logger.info("Starting price fetch cycle...")
-
-    # TODO: Implement actual price fetching
-    # 1. Get list of tracked tokens from database
-    # 2. For each token, fetch from all configured venues
-    # 3. Store in Redis cache with TTL
-    # 4. Persist to PostgreSQL
-
-    # Placeholder return for skeleton validation
-    result = {
-        "status": "completed",
-        "tokens_processed": 0,
-        "venues_queried": 0,
-        "errors": [],
-    }
-
-    logger.info(f"Price fetch cycle completed: {result}")
-    return result
+    logger.error(
+        "fetch_all_prices task called but not implemented. "
+        "Requires: TokenRepository, PriceRepository, and venue clients (Kraken, Coinbase, etc.)"
+    )
+    raise NotImplementedError(
+        "fetch_all_prices requires: "
+        "1) TokenRepository to get tracked tokens, "
+        "2) Venue clients (KrakenClient, CoinbaseClient, etc.), "
+        "3) PriceRepository to persist snapshots, "
+        "4) Redis client for caching"
+    )
 
 
 @celery_app.task(bind=True, name="fetch_price_for_token")
@@ -48,13 +44,17 @@ def fetch_price_for_token(self, token_symbol: str) -> dict:
 
     Returns:
         Price data from all venues.
+
+    Raises:
+        NotImplementedError: Task requires venue clients and repositories.
     """
-    logger.info(f"Fetching prices for {token_symbol}...")
-
-    # TODO: Implement actual price fetching for single token
-
-    return {
-        "token": token_symbol,
-        "status": "completed",
-        "prices": [],
-    }
+    logger.error(
+        f"fetch_price_for_token({token_symbol}) called but not implemented. "
+        "Requires venue clients and PriceRepository."
+    )
+    raise NotImplementedError(
+        f"fetch_price_for_token({token_symbol}) requires: "
+        "1) Venue clients (KrakenClient, CoinbaseClient, etc.), "
+        "2) PriceRepository to persist snapshots, "
+        "3) Redis client for caching"
+    )

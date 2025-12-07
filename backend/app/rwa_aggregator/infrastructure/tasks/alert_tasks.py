@@ -20,26 +20,21 @@ def check_alerts(self) -> dict:
 
     Returns:
         Summary of alert check results.
+
+    Raises:
+        NotImplementedError: Task requires repositories and email service.
     """
-    logger.info("Starting alert check cycle...")
-
-    # TODO: Implement actual alert checking
-    # 1. Query active alerts from database
-    # 2. For each alert, get current price from Redis
-    # 3. Apply AlertPolicy domain service to check if triggered
-    # 4. Send email via SendGrid for triggered alerts
-    # 5. Update alert cooldown timestamp
-
-    result = {
-        "status": "completed",
-        "alerts_checked": 0,
-        "alerts_triggered": 0,
-        "notifications_sent": 0,
-        "errors": [],
-    }
-
-    logger.info(f"Alert check cycle completed: {result}")
-    return result
+    logger.error(
+        "check_alerts task called but not implemented. "
+        "Requires: AlertRepository, PriceRepository, AlertPolicy, and EmailSender."
+    )
+    raise NotImplementedError(
+        "check_alerts requires: "
+        "1) AlertRepository to get active alerts, "
+        "2) PriceRepository/Redis to get current prices, "
+        "3) AlertPolicy domain service for condition evaluation, "
+        "4) EmailSender for notifications"
+    )
 
 
 @celery_app.task(bind=True, name="send_alert_notification")
@@ -52,12 +47,16 @@ def send_alert_notification(self, alert_id: str, current_price: str) -> dict:
 
     Returns:
         Notification delivery status.
+
+    Raises:
+        NotImplementedError: Task requires email service implementation.
     """
-    logger.info(f"Sending notification for alert {alert_id}...")
-
-    # TODO: Implement actual email sending via SendGrid
-
-    return {
-        "alert_id": alert_id,
-        "status": "sent",
-    }
+    logger.error(
+        f"send_alert_notification({alert_id}) called but not implemented. "
+        "Requires: AlertRepository and SendGrid EmailSender."
+    )
+    raise NotImplementedError(
+        f"send_alert_notification({alert_id}) requires: "
+        "1) AlertRepository to get alert details, "
+        "2) SendGrid EmailSender to send notification"
+    )

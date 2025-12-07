@@ -1,10 +1,10 @@
 """Price aggregation API endpoints."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -50,63 +50,33 @@ async def get_aggregated_prices(
 
     Returns:
         Aggregated price data with best bid/ask and per-venue breakdown.
+
+    Raises:
+        HTTPException: 501 if price aggregation use case is not yet implemented.
     """
-    # TODO: Replace with actual use case call
-    # This is placeholder data for initial testing
-
-    now = datetime.now(timezone.utc)
-
-    # Mock venue data for skeleton validation
-    mock_venues = [
-        VenuePrice(
-            venue="Kraken",
-            venue_type="CEX",
-            bid=Decimal("0.9998"),
-            ask=Decimal("1.0002"),
-            mid=Decimal("1.0000"),
-            timestamp=now,
-            is_stale=False,
-        ),
-        VenuePrice(
-            venue="Coinbase",
-            venue_type="CEX",
-            bid=Decimal("0.9997"),
-            ask=Decimal("1.0001"),
-            mid=Decimal("0.9999"),
-            timestamp=now,
-            is_stale=False,
-        ),
-    ]
-
-    return AggregatedPriceResponse(
-        token_symbol=token_symbol.upper(),
-        best_bid=Decimal("0.9998"),
-        best_bid_venue="Kraken",
-        best_ask=Decimal("1.0001"),
-        best_ask_venue="Coinbase",
-        mid_price=Decimal("0.99995"),
-        spread_bps=Decimal("3.0"),
-        venue_count=len(mock_venues),
-        venues=mock_venues,
-        aggregated_at=now,
+    # Use case not yet implemented - raise explicit error per .cursorrules
+    raise HTTPException(
+        status_code=501,
+        detail=f"Price aggregation for {token_symbol.upper()} not yet implemented. "
+        "Requires: GetAggregatedPrices use case, PriceRepository, and venue clients.",
     )
 
 
 @router.get("/prices", response_model=list[AggregatedPriceResponse])
-async def list_all_prices() -> list[AggregatedPriceResponse]:
+async def list_all_prices(
+    include_stale: Annotated[bool, Query(description="Include stale prices")] = False,
+) -> list[AggregatedPriceResponse]:
     """Get aggregated prices for all tracked tokens.
 
     Returns:
         List of aggregated price data for each tracked token.
+
+    Raises:
+        HTTPException: 501 if price listing use case is not yet implemented.
     """
-    # TODO: Replace with actual use case call
-    # This calls the single-token endpoint for each tracked token
-
-    tokens = ["USDC", "PAXG", "ONDO"]
-    results = []
-
-    for token in tokens:
-        result = await get_aggregated_prices(token)
-        results.append(result)
-
-    return results
+    # Use case not yet implemented - raise explicit error per .cursorrules
+    raise HTTPException(
+        status_code=501,
+        detail="Price listing not yet implemented. "
+        "Requires: ListAllPrices use case, TokenRepository, and PriceRepository.",
+    )
