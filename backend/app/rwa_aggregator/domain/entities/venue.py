@@ -63,3 +63,4 @@ class Venue:
     def activate(self) -> None:
         """Mark the venue as active (resume polling)."""
         self.is_active = True
+

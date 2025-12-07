@@ -42,3 +42,4 @@ async def readiness_check() -> dict[str, str]:
     # TODO: Add database and Redis connectivity checks
     return {"status": "ready"}
 
+

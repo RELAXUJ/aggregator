@@ -59,3 +59,4 @@ def fetch_price_for_token(self, token_symbol: str) -> dict:
         "3) Redis client for caching"
     )
 
+

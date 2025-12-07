@@ -61,3 +61,4 @@ def send_alert_notification(self, alert_id: str, current_price: str) -> dict:
         "2) SendGrid EmailSender to send notification"
     )
 
+
