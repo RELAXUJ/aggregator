@@ -14,6 +14,17 @@ class TokenCategory(Enum):
     EQUITY = "equity"
 
 
+class MarketType(Enum):
+    """Market type indicating whether a token has active trading pairs.
+
+    TRADABLE: Real spot pairs exist on exchanges (e.g., USDY/USDC on Bybit)
+    NAV_ONLY: Only NAV/AUM info available, no active trading pairs (e.g., OUSG, BENJI)
+    """
+
+    TRADABLE = "tradable"
+    NAV_ONLY = "nav_only"
+
+
 @dataclass
 class Token:
     """Domain entity representing a tokenized Real-World Asset.
@@ -27,6 +38,7 @@ class Token:
         chain: Blockchain where token is deployed.
         contract_address: Smart contract address.
         is_active: Whether the token is actively tracked.
+        market_type: Whether the token has active trading pairs or is NAV-only.
     """
 
     id: Optional[int]
@@ -37,6 +49,7 @@ class Token:
     chain: Optional[str] = None
     contract_address: Optional[str] = None
     is_active: bool = True
+    market_type: MarketType = MarketType.TRADABLE
 
     def deactivate(self) -> None:
         """Mark the token as inactive (stop tracking)."""

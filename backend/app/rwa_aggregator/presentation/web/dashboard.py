@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.rwa_aggregator.application.dto.price_dto import AggregatedPricesDTO
 from app.rwa_aggregator.application.exceptions import NoPriceDataError, TokenNotFoundError
 from app.rwa_aggregator.application.use_cases.get_aggregated_prices import GetAggregatedPricesUseCase
+from app.rwa_aggregator.domain.entities.token import MarketType, Token
 from app.rwa_aggregator.domain.services.price_calculator import PriceCalculator
 from app.rwa_aggregator.infrastructure.db.session import get_db_session
 from app.rwa_aggregator.infrastructure.repositories.sql_price_repository import SqlPriceRepository
@@ -68,17 +69,23 @@ async def dashboard(
     tokens = await token_repo.get_all_active()
 
     # Default to first token if none specified
-    current_token = token.upper() if token else (tokens[0].symbol if tokens else None)
+    current_token_symbol = token.upper() if token else (tokens[0].symbol if tokens else None)
+
+    # Get the current token entity for market_type info
+    current_token_entity: Optional[Token] = None
+    if current_token_symbol:
+        current_token_entity = await token_repo.get_by_symbol(current_token_symbol)
 
     # Get initial price data for server-side rendering (fallback for no-JS)
     prices: Optional[AggregatedPricesDTO] = None
     error_message: Optional[str] = None
 
-    if current_token:
+    # Only fetch prices for tradable tokens
+    if current_token_entity and current_token_entity.market_type == MarketType.TRADABLE:
         use_case = _create_use_case(session)
         try:
             prices = await use_case.execute(
-                base_symbol=current_token,
+                base_symbol=current_token_symbol,
                 include_stale=True,
             )
         except (TokenNotFoundError, NoPriceDataError) as e:
@@ -89,7 +96,8 @@ async def dashboard(
         "dashboard.html",
         {
             "tokens": tokens,
-            "current_token": current_token,
+            "current_token": current_token_symbol,
+            "current_token_entity": current_token_entity,
             "prices": prices,
             "error_message": error_message,
         },
@@ -118,6 +126,22 @@ async def price_table_partial(
     Returns:
         Rendered price table HTML partial.
     """
+    token_repo = SqlTokenRepository(session)
+    token_entity = await token_repo.get_by_symbol(token_symbol.upper())
+
+    # If token is NAV-only, return informational card instead of price table
+    if token_entity and token_entity.market_type == MarketType.NAV_ONLY:
+        return templates.TemplateResponse(
+            request,
+            "partials/price_table.html",
+            {
+                "prices": None,
+                "error_message": None,
+                "token_entity": token_entity,
+                "is_nav_only": True,
+            },
+        )
+
     use_case = _create_use_case(session)
     prices: Optional[AggregatedPricesDTO] = None
     error_message: Optional[str] = None
@@ -138,6 +162,8 @@ async def price_table_partial(
         {
             "prices": prices,
             "error_message": error_message,
+            "token_entity": token_entity,
+            "is_nav_only": False,
         },
     )
 

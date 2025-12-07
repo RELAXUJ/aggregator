@@ -16,12 +16,13 @@ from sqlalchemy import select
 
 from app.rwa_aggregator.infrastructure.db.session import get_async_session_local
 from app.rwa_aggregator.infrastructure.db.models import TokenModel, VenueModel
-from app.rwa_aggregator.domain.entities.token import TokenCategory
+from app.rwa_aggregator.domain.entities.token import MarketType, TokenCategory
 from app.rwa_aggregator.domain.entities.venue import VenueType, ApiType
 
 
 # MVP Tokens per specification
 TOKENS = [
+    # === TRADABLE RWA TOKENS ===
     {
         "symbol": "USDY",
         "name": "Ondo US Dollar Yield",
@@ -29,7 +30,9 @@ TOKENS = [
         "issuer": "Ondo Finance",
         "chain": "Ethereum",
         "contract_address": "0x96F6eF951840721AdBF46Ac996b59E0235CB985C",
+        "market_type": MarketType.TRADABLE,  # Has USDY/USDT on Bybit
     },
+    # === NAV-ONLY RWA TOKENS (no active trading pairs) ===
     {
         "symbol": "OUSG",
         "name": "Ondo Short-Term US Gov Treasuries",
@@ -37,6 +40,7 @@ TOKENS = [
         "issuer": "Ondo Finance",
         "chain": "Ethereum",
         "contract_address": "0x1B19C19393e2d034D8Ff31ff34c81252FcBbee92",
+        "market_type": MarketType.NAV_ONLY,  # No active spot trading pairs
     },
     {
         "symbol": "BENJI",
@@ -45,8 +49,9 @@ TOKENS = [
         "issuer": "Franklin Templeton",
         "chain": "Stellar",
         "contract_address": None,  # Stellar-based
+        "market_type": MarketType.NAV_ONLY,  # Fund token, no spot trading
     },
-    # Test tokens with real exchange data (for infrastructure verification)
+    # === TRADABLE TEST TOKENS (for infrastructure verification) ===
     {
         "symbol": "ETH",
         "name": "Ethereum (Test Token)",
@@ -54,6 +59,7 @@ TOKENS = [
         "issuer": "Ethereum Foundation",
         "chain": "Ethereum",
         "contract_address": None,
+        "market_type": MarketType.TRADABLE,
     },
     {
         "symbol": "PAXG",
@@ -62,6 +68,7 @@ TOKENS = [
         "issuer": "Paxos",
         "chain": "Ethereum",
         "contract_address": "0x45804880De22913dAFE09f4980848ECE6EcbAf78",
+        "market_type": MarketType.TRADABLE,  # Available on Kraken, Coinbase
     },
 ]
 
@@ -80,6 +87,13 @@ VENUES = [
         "api_type": ApiType.REST,
         "base_url": "https://api.exchange.coinbase.com",
         "trade_url_template": "https://www.coinbase.com/advanced-trade/{symbol}-USD",
+    },
+    {
+        "name": "Bybit",
+        "venue_type": VenueType.CEX,
+        "api_type": ApiType.REST,
+        "base_url": "https://api.bybit.com",
+        "trade_url_template": "https://www.bybit.com/trade/spot/{symbol}USDT",
     },
     {
         "name": "Uniswap V3",
@@ -112,6 +126,7 @@ async def seed_tokens(session) -> int:
             chain=token_data.get("chain"),
             contract_address=token_data.get("contract_address"),
             is_active=True,
+            market_type=token_data.get("market_type", MarketType.TRADABLE),
         )
         session.add(token)
         created += 1

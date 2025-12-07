@@ -230,6 +230,7 @@ def create_default_registry(
     coinbase_enabled: bool = True,
     coinbase_api_key: Optional[str] = None,
     coinbase_api_secret: Optional[str] = None,
+    bybit_enabled: bool = True,
     uniswap_enabled: bool = True,
     uniswap_network: str = "mainnet",
     thegraph_api_key: Optional[str] = None,
@@ -244,6 +245,7 @@ def create_default_registry(
         coinbase_enabled: Whether to include Coinbase client.
         coinbase_api_key: Optional Coinbase API key.
         coinbase_api_secret: Optional Coinbase API secret.
+        bybit_enabled: Whether to include Bybit client.
         uniswap_enabled: Whether to include Uniswap client.
         uniswap_network: Uniswap network (mainnet, arbitrum, etc.).
         thegraph_api_key: The Graph API key for Uniswap subgraph access.
@@ -251,6 +253,7 @@ def create_default_registry(
     Returns:
         Configured PriceFeedRegistry instance.
     """
+    from app.rwa_aggregator.infrastructure.external.bybit_client import BybitClient
     from app.rwa_aggregator.infrastructure.external.coinbase_client import CoinbaseClient
     from app.rwa_aggregator.infrastructure.external.kraken_client import KrakenClient
     from app.rwa_aggregator.infrastructure.external.uniswap_client import UniswapClient
@@ -267,6 +270,9 @@ def create_default_registry(
                 api_secret=coinbase_api_secret,
             )
         )
+
+    if bybit_enabled:
+        registry.register(BybitClient())
 
     if uniswap_enabled:
         registry.register(

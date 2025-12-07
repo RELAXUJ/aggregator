@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.rwa_aggregator.domain.entities.price_snapshot import PriceSnapshot
+from app.rwa_aggregator.domain.entities.token import MarketType
 from app.rwa_aggregator.infrastructure.db.session import get_async_session_local
 from app.rwa_aggregator.infrastructure.external.price_feed_registry import (
     create_default_registry,
@@ -45,6 +46,7 @@ async def _fetch_all_prices_async() -> dict[str, Any]:
         coinbase_enabled=True,
         coinbase_api_key=settings.coinbase_api_key or None,
         coinbase_api_secret=settings.coinbase_api_secret or None,
+        bybit_enabled=True,
         uniswap_enabled=True,
         thegraph_api_key=settings.thegraph_api_key or None,
     )
@@ -66,6 +68,13 @@ async def _fetch_all_prices_async() -> dict[str, Any]:
         logger.debug(f"Venue map: {venue_map}")
 
         for token in tokens:
+            # Skip NAV-only tokens - they don't have active trading pairs
+            if token.market_type == MarketType.NAV_ONLY:
+                logger.info(
+                    f"Skipping {token.symbol} - NAV-only token (no active trading pairs)"
+                )
+                continue
+
             try:
                 # Fetch quotes from all venues for this token
                 quotes = await registry.fetch_all_quotes(token.symbol)
@@ -169,6 +178,7 @@ async def _fetch_price_for_token_async(token_symbol: str) -> dict[str, Any]:
         coinbase_enabled=True,
         coinbase_api_key=settings.coinbase_api_key or None,
         coinbase_api_secret=settings.coinbase_api_secret or None,
+        bybit_enabled=True,
         uniswap_enabled=True,
         thegraph_api_key=settings.thegraph_api_key or None,
     )
@@ -184,6 +194,14 @@ async def _fetch_price_for_token_async(token_symbol: str) -> dict[str, Any]:
         token = await token_repo.get_by_symbol(token_symbol)
         if not token:
             results["errors"].append(f"Token {token_symbol} not found")
+            return results
+
+        # Check if token is NAV-only
+        if token.market_type == MarketType.NAV_ONLY:
+            results["errors"].append(
+                f"Token {token_symbol} is NAV-only (no active trading pairs)"
+            )
+            await registry.close_all()
             return results
 
         # Build venue name -> id map

@@ -22,7 +22,7 @@ from sqlalchemy.orm import DeclarativeBase, relationship
 
 # Import domain enums for SQLAlchemy Enum columns
 from app.rwa_aggregator.domain.entities.alert import AlertStatus, AlertType
-from app.rwa_aggregator.domain.entities.token import TokenCategory
+from app.rwa_aggregator.domain.entities.token import MarketType, TokenCategory
 from app.rwa_aggregator.domain.entities.venue import ApiType, VenueType
 
 
@@ -45,6 +45,9 @@ class TokenModel(Base):
     chain = Column(String(50), nullable=True)
     contract_address = Column(String(66), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    market_type = Column(
+        SQLEnum(MarketType), nullable=False, default=MarketType.TRADABLE
+    )
 
     # Relationships
     price_snapshots = relationship(

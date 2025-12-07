@@ -60,6 +60,24 @@ class TokenRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_all_active_tradable(self) -> List[Token]:
+        """Retrieve all active tokens that have tradable pairs.
+
+        Returns:
+            List of active Token entities where market_type is TRADABLE.
+        """
+        pass
+
+    @abstractmethod
+    async def get_all_active_nav_only(self) -> List[Token]:
+        """Retrieve all active tokens that are NAV-only (informational).
+
+        Returns:
+            List of active Token entities where market_type is NAV_ONLY.
+        """
+        pass
+
+    @abstractmethod
     async def save(self, token: Token) -> Token:
         """Persist a token entity.
 

@@ -9,7 +9,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.rwa_aggregator.domain.entities.token import Token, TokenCategory
+from app.rwa_aggregator.domain.entities.token import MarketType, Token, TokenCategory
 from app.rwa_aggregator.domain.repositories.token_repository import TokenRepository
 from app.rwa_aggregator.infrastructure.db.models import TokenModel
 
@@ -56,6 +56,34 @@ class SqlTokenRepository(TokenRepository):
         models = result.scalars().all()
         return [self._to_entity(m) for m in models]
 
+    async def get_all_active_tradable(self) -> List[Token]:
+        """Retrieve all active tokens that have tradable pairs.
+
+        Returns only tokens where market_type == TRADABLE (i.e., tokens
+        that have real spot trading pairs on exchanges).
+        """
+        stmt = select(TokenModel).where(
+            TokenModel.is_active == True,  # noqa: E712
+            TokenModel.market_type == MarketType.TRADABLE,
+        )
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+        return [self._to_entity(m) for m in models]
+
+    async def get_all_active_nav_only(self) -> List[Token]:
+        """Retrieve all active tokens that are NAV-only (informational).
+
+        Returns only tokens where market_type == NAV_ONLY (i.e., tokens
+        that don't have active trading pairs, only NAV/AUM info).
+        """
+        stmt = select(TokenModel).where(
+            TokenModel.is_active == True,  # noqa: E712
+            TokenModel.market_type == MarketType.NAV_ONLY,
+        )
+        result = await self._session.execute(stmt)
+        models = result.scalars().all()
+        return [self._to_entity(m) for m in models]
+
     async def save(self, token: Token) -> Token:
         """Persist a token entity.
 
@@ -83,6 +111,7 @@ class SqlTokenRepository(TokenRepository):
             model.chain = token.chain
             model.contract_address = token.contract_address
             model.is_active = token.is_active
+            model.market_type = token.market_type
 
             await self._session.flush()
             return self._to_entity(model)
@@ -98,6 +127,7 @@ class SqlTokenRepository(TokenRepository):
             chain=model.chain,
             contract_address=model.contract_address,
             is_active=model.is_active,
+            market_type=model.market_type,
         )
 
     def _to_model(self, entity: Token) -> TokenModel:
@@ -111,4 +141,5 @@ class SqlTokenRepository(TokenRepository):
             chain=entity.chain,
             contract_address=entity.contract_address,
             is_active=entity.is_active,
+            market_type=entity.market_type,
         )
