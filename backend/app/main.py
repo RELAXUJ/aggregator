@@ -1,16 +1,17 @@
 """FastAPI application factory and main entry point."""
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
-from app.rwa_aggregator.presentation.api import health, prices
+from app.rwa_aggregator.presentation.api import alerts, health, prices, tokens
+from app.rwa_aggregator.presentation.web import dashboard
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -50,9 +51,24 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Include API routers
+    # API routes
     app.include_router(health.router, prefix="/api", tags=["Health"])
     app.include_router(prices.router, prefix="/api", tags=["Prices"])
+    app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
+    app.include_router(tokens.router, prefix="/api", tags=["Tokens"])
+
+    # Web routes (HTMX dashboard) - no prefix for root /
+    app.include_router(dashboard.router, tags=["Web"])
+
+    # Static files (if directory exists)
+    static_dir = os.path.join(
+        os.path.dirname(__file__),
+        "rwa_aggregator",
+        "presentation",
+        "static",
+    )
+    if os.path.isdir(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     return app
 
@@ -70,5 +86,3 @@ if __name__ == "__main__":
         port=8000,
         reload=settings.is_development,
     )
-
-

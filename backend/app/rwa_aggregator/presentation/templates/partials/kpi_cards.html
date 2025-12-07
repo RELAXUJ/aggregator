@@ -1,0 +1,80 @@
+{# KPI Summary Cards - Best Bid, Best Ask, Spread #}
+{% if prices and prices.best_prices %}
+<section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <!-- Best Bid Card -->
+    <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-slate-400 uppercase tracking-wide">Best Bid</h3>
+            <span class="text-xs text-green-500 bg-green-500/10 px-2 py-1 rounded-full">Highest</span>
+        </div>
+        {% if prices.best_prices.best_bid_price %}
+        <div class="text-2xl font-semibold text-green-400 tabular-nums">
+            ${{ "%.4f"|format(prices.best_prices.best_bid_price) }}
+        </div>
+        <div class="text-sm text-slate-500 mt-1">
+            {{ prices.best_prices.best_bid_venue or 'N/A' }}
+        </div>
+        {% else %}
+        <div class="text-2xl font-semibold text-slate-500">—</div>
+        <div class="text-sm text-slate-600 mt-1">No data</div>
+        {% endif %}
+    </div>
+    
+    <!-- Best Ask Card -->
+    <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-slate-400 uppercase tracking-wide">Best Ask</h3>
+            <span class="text-xs text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full">Lowest</span>
+        </div>
+        {% if prices.best_prices.best_ask_price %}
+        <div class="text-2xl font-semibold text-blue-400 tabular-nums">
+            ${{ "%.4f"|format(prices.best_prices.best_ask_price) }}
+        </div>
+        <div class="text-sm text-slate-500 mt-1">
+            {{ prices.best_prices.best_ask_venue or 'N/A' }}
+        </div>
+        {% else %}
+        <div class="text-2xl font-semibold text-slate-500">—</div>
+        <div class="text-sm text-slate-600 mt-1">No data</div>
+        {% endif %}
+    </div>
+    
+    <!-- Spread Card -->
+    <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-slate-400 uppercase tracking-wide">Effective Spread</h3>
+            <span class="text-xs text-slate-500">{{ prices.num_fresh_venues }}/{{ prices.num_venues }} venues</span>
+        </div>
+        {% if prices.best_prices.effective_spread_pct is not none %}
+        <div class="text-2xl font-semibold tabular-nums
+            {% if prices.best_prices.effective_spread_pct < 0.5 %}text-green-400
+            {% elif prices.best_prices.effective_spread_pct < 2.0 %}text-yellow-400
+            {% else %}text-red-400{% endif %}">
+            {{ "%.4f"|format(prices.best_prices.effective_spread_pct) }}%
+        </div>
+        <div class="text-sm text-slate-500 mt-1">
+            {{ "%.2f"|format(prices.best_prices.effective_spread_bps or 0) }} bps
+        </div>
+        {% else %}
+        <div class="text-2xl font-semibold text-slate-500">—</div>
+        <div class="text-sm text-slate-600 mt-1">No data</div>
+        {% endif %}
+    </div>
+</section>
+{% elif error_message %}
+<section class="mb-6">
+    <div class="bg-red-900/20 border border-red-800 rounded-2xl p-4 text-center">
+        <p class="text-red-400">{{ error_message }}</p>
+    </div>
+</section>
+{% else %}
+<section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    {% for _ in range(3) %}
+    <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 animate-pulse">
+        <div class="h-4 bg-slate-700 rounded w-24 mb-3"></div>
+        <div class="h-8 bg-slate-700 rounded w-32 mb-2"></div>
+        <div class="h-3 bg-slate-800 rounded w-20"></div>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
