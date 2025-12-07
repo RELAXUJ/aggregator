@@ -93,13 +93,17 @@ async def test_coinbase(api_key: str = None, api_secret: str = None):
     print("\n✓ Coinbase test completed")
 
 
-async def test_uniswap():
+async def test_uniswap(api_key: str = None):
     """Test Uniswap Subgraph connection."""
     print("\n" + "=" * 50)
     print("Testing Uniswap V3 Subgraph")
     print("=" * 50)
 
-    async with UniswapClient(network="mainnet") as client:
+    if not api_key:
+        print("\n  ⚠ No API key provided. Get one from https://thegraph.com/studio/")
+        print("    Use --thegraph-key YOUR_KEY to test Uniswap")
+
+    async with UniswapClient(network="mainnet", api_key=api_key) as client:
         # Test tokens (tokens that have liquidity pools)
         test_tokens = ["ETH", "USDC", "WBTC", "DAI"]
 
@@ -123,13 +127,13 @@ async def test_uniswap():
     print("\n✓ Uniswap test completed")
 
 
-async def test_registry():
+async def test_registry(thegraph_api_key: str = None):
     """Test the PriceFeedRegistry with all feeds."""
     print("\n" + "=" * 50)
     print("Testing Price Feed Registry (All Sources)")
     print("=" * 50)
 
-    registry = create_default_registry()
+    registry = create_default_registry(thegraph_api_key=thegraph_api_key)
 
     try:
         print(f"\nRegistered feeds: {registry.registered_feeds}")
@@ -176,6 +180,7 @@ async def main():
     parser.add_argument("--registry", action="store_true", help="Test Registry only")
     parser.add_argument("--coinbase-key", help="Coinbase API key")
     parser.add_argument("--coinbase-secret", help="Coinbase API secret")
+    parser.add_argument("--thegraph-key", help="The Graph API key for Uniswap")
 
     args = parser.parse_args()
 
@@ -194,10 +199,10 @@ async def main():
             await test_coinbase(args.coinbase_key, args.coinbase_secret)
 
         if test_all or args.uniswap:
-            await test_uniswap()
+            await test_uniswap(args.thegraph_key)
 
         if test_all or args.registry:
-            await test_registry()
+            await test_registry(args.thegraph_key)
 
         print("\n" + "=" * 50)
         print("All tests completed successfully!")

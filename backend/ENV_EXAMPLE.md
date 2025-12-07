@@ -53,7 +53,7 @@ ETH_RPC_URL=https://mainnet.infura.io/v3/your_project_id
 
 # The Graph API Key (required for Uniswap V3 subgraph)
 # Get free tier (100k queries/month) from https://thegraph.com/studio/
-THEGRAPH_API_KEY=
+THEGRAPH_API_KEY=37c26010270315607fc2333c3dbabe1b
 
 # ============================================
 # EMAIL ALERTS (SendGrid)
